@@ -276,3 +276,102 @@ export const overrideWarning = async (sessionId, reason) => {
     return { data: null, error };
   }
 };
+
+/**
+ * Auto-close sessions older than 11 hours with 10 hours recorded
+ * This checks for active sessions that haven't been closed and are >11 hours old
+ */
+export const autoCloseOldSessions = async () => {
+  try {
+    const elevenHoursAgo = new Date();
+    elevenHoursAgo.setHours(elevenHoursAgo.getHours() - 11);
+
+    // Find all active sessions older than 11 hours
+    const { data: staleSessions, error: fetchError } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .select('*')
+      .is('end_time', null)
+      .lt('start_time', elevenHoursAgo.toISOString());
+
+    if (fetchError) throw fetchError;
+
+    if (!staleSessions || staleSessions.length === 0) {
+      return { closedCount: 0, error: null };
+    }
+
+    // Close each stale session with 10 hours duration
+    const updates = staleSessions.map(session => {
+      const endTime = new Date(session.start_time);
+      endTime.setHours(endTime.getHours() + 10); // Add exactly 10 hours
+
+      return {
+        id: session.id,
+        end_time: endTime.toISOString()
+      };
+    });
+
+    // Bulk update all stale sessions
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .upsert(updates)
+      .select();
+
+    if (error) throw error;
+
+    return { closedCount: staleSessions.length, sessions: data, error: null };
+  } catch (error) {
+    return { closedCount: 0, sessions: [], error };
+  }
+};
+
+/**
+ * Edit a CRET session's start and end times
+ */
+export const editCretSession = async (sessionId, startTime, endTime) => {
+  try {
+    const updates = {
+      start_time: startTime,
+    };
+
+    // Only update end_time if provided
+    if (endTime) {
+      updates.end_time = endTime;
+    }
+
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .update(updates)
+      .eq('id', sessionId)
+      .select(`
+        *,
+        associate:associates (
+          badge_id,
+          login,
+          name
+        )
+      `)
+      .single();
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error };
+  }
+};
+
+/**
+ * Delete a CRET session
+ */
+export const deleteCretSession = async (sessionId) => {
+  try {
+    const { error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .delete()
+      .eq('id', sessionId);
+
+    if (error) throw error;
+    return { error: null };
+  } catch (error) {
+    return { error };
+  }
+};

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { getAllCretSessions, formatHours } from '../utils/cretUtils';
 import { format, startOfWeek, endOfWeek } from 'date-fns';
 import toast from 'react-hot-toast';
+import EditSessionModal from './EditSessionModal';
 
 export default function History() {
   const [sessions, setSessions] = useState([]);
@@ -9,6 +10,7 @@ export default function History() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [editingSession, setEditingSession] = useState(null);
   const [stats, setStats] = useState({
     total: 0,
     completed: 0,
@@ -70,6 +72,16 @@ export default function History() {
     }
 
     setFilteredSessions(filtered);
+  };
+
+  const handleSessionSave = (updatedSession) => {
+    if (updatedSession === null) {
+      // Session was deleted
+      loadSessions();
+    } else {
+      // Session was updated
+      loadSessions();
+    }
   };
 
   const exportToCSV = () => {
@@ -200,12 +212,13 @@ export default function History() {
                 <th className="pb-3">Day</th>
                 <th className="pb-3">Week</th>
                 <th className="pb-3">Status</th>
+                <th className="pb-3">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredSessions.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="py-8 text-center text-gray-500">
+                  <td colSpan="8" className="py-8 text-center text-gray-500">
                     No sessions found
                   </td>
                 </tr>
@@ -255,6 +268,28 @@ export default function History() {
                         </span>
                       )}
                     </td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => setEditingSession(session)}
+                        className="text-primary-600 hover:text-primary-700 font-semibold text-sm flex items-center"
+                        title="Edit session"
+                      >
+                        <svg
+                          className="w-4 h-4 mr-1"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                          />
+                        </svg>
+                        Edit
+                      </button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -262,6 +297,15 @@ export default function History() {
           </table>
         </div>
       </div>
+
+      {/* Edit Session Modal */}
+      {editingSession && (
+        <EditSessionModal
+          session={editingSession}
+          onClose={() => setEditingSession(null)}
+          onSave={handleSessionSave}
+        />
+      )}
     </div>
   );
 }
