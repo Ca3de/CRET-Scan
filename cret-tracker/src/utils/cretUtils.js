@@ -405,3 +405,45 @@ export const getCompletedSessionsToday = async (associateId) => {
     return { sessions: [], count: 0, totalHours: 0, error };
   }
 };
+
+/**
+ * Get all associates (for search/dropdown)
+ */
+export const getAllAssociates = async () => {
+  try {
+    const { data, error } = await supabase
+      .from(TABLES.ASSOCIATES)
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: [], error };
+  }
+};
+
+/**
+ * Get all CRET sessions for a specific associate
+ */
+export const getAssociateCretHistory = async (associateId) => {
+  try {
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .select(`
+        *,
+        associate:associates (
+          badge_id,
+          login,
+          name
+        )
+      `)
+      .eq('associate_id', associateId)
+      .order('start_time', { ascending: false });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: [], error };
+  }
+};
