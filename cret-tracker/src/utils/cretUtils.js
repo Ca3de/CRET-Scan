@@ -375,3 +375,75 @@ export const deleteCretSession = async (sessionId) => {
     return { error };
   }
 };
+
+/**
+ * Check if associate has completed sessions today
+ */
+export const getCompletedSessionsToday = async (associateId) => {
+  try {
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .select('*')
+      .eq('associate_id', associateId)
+      .not('end_time', 'is', null)
+      .gte('start_time', todayStart.toISOString());
+
+    if (error) throw error;
+
+    const totalHoursToday = data.reduce((sum, s) => sum + (parseFloat(s.hours_used) || 0), 0);
+
+    return {
+      sessions: data,
+      count: data.length,
+      totalHours: totalHoursToday,
+      error: null
+    };
+  } catch (error) {
+    return { sessions: [], count: 0, totalHours: 0, error };
+  }
+};
+
+/**
+ * Get all associates (for search/dropdown)
+ */
+export const getAllAssociates = async () => {
+  try {
+    const { data, error } = await supabase
+      .from(TABLES.ASSOCIATES)
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: [], error };
+  }
+};
+
+/**
+ * Get all CRET sessions for a specific associate
+ */
+export const getAssociateCretHistory = async (associateId) => {
+  try {
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .select(`
+        *,
+        associate:associates (
+          badge_id,
+          login,
+          name
+        )
+      `)
+      .eq('associate_id', associateId)
+      .order('start_time', { ascending: false });
+
+    if (error) throw error;
+    return { data, error: null };
+  } catch (error) {
+    return { data: [], error };
+  }
+};

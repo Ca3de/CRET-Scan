@@ -1,0 +1,13 @@
+{
+  "version": 2,
+  "buildCommand": "cd cret-tracker && npm install && npm run build",
+  "outputDirectory": "cret-tracker/dist",
+  "installCommand": "cd cret-tracker && npm install",
+  "framework": null,
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

@@ -8,9 +8,11 @@ import {
   startCretSession,
   endCretSession,
   getCretHoursLastWeek,
+  getCompletedSessionsToday,
 } from '../utils/cretUtils';
 import WarningModal from './WarningModal';
 import NamePromptModal from './NamePromptModal';
+import SameDayConfirmModal from './SameDayConfirmModal';
 
 export default function Scanner() {
   const [scanInput, setScanInput] = useState('');
@@ -18,7 +20,9 @@ export default function Scanner() {
   const [lastScan, setLastScan] = useState(null);
   const [showWarning, setShowWarning] = useState(false);
   const [showNamePrompt, setShowNamePrompt] = useState(false);
+  const [showSameDayConfirm, setShowSameDayConfirm] = useState(false);
   const [warningData, setWarningData] = useState(null);
+  const [sameDayData, setSameDayData] = useState(null);
   const [pendingAssociate, setPendingAssociate] = useState(null);
   const [pendingAction, setPendingAction] = useState(null);
   const inputRef = useRef(null);
@@ -28,7 +32,7 @@ export default function Scanner() {
   // Auto-focus input for barcode scanner
   useEffect(() => {
     const focusInput = () => {
-      if (inputRef.current && !showWarning && !showNamePrompt) {
+      if (inputRef.current && !showWarning && !showNamePrompt && !showSameDayConfirm) {
         inputRef.current.focus();
       }
     };
@@ -36,7 +40,7 @@ export default function Scanner() {
     focusInput();
     window.addEventListener('click', focusInput);
     return () => window.removeEventListener('click', focusInput);
-  }, [showWarning, showNamePrompt]);
+  }, [showWarning, showNamePrompt, showSameDayConfirm]);
 
   // Handle barcode scanner input (detects rapid keyboard input)
   const handleInputChange = (e) => {
@@ -123,7 +127,23 @@ export default function Scanner() {
       }
 
       // No active session, so start a new one
-      // But first check if they have >5 hours in the past week
+      // First check if they've already been to CRET today
+      const todaySessionsResult = await getCompletedSessionsToday(associate.id);
+
+      if (todaySessionsResult.count > 0) {
+        // Show same-day confirmation modal
+        setSameDayData({
+          associate,
+          count: todaySessionsResult.count,
+          totalHours: todaySessionsResult.totalHours,
+        });
+        setPendingAction({ type: 'start', associate });
+        setShowSameDayConfirm(true);
+        setIsScanning(false);
+        return;
+      }
+
+      // Check if they have >5 hours in the past week
       const { totalHours } = await getCretHoursLastWeek(associate.id);
 
       if (totalHours >= 5) {
@@ -168,6 +188,25 @@ export default function Scanner() {
   const handleWarningOverride = async (reason) => {
     setShowWarning(false);
     if (pendingAction?.type === 'start') {
+      await startSession(pendingAction.associate);
+    }
+    setPendingAction(null);
+  };
+
+  const handleSameDayConfirm = async () => {
+    setShowSameDayConfirm(false);
+    if (pendingAction?.type === 'start') {
+      // Check 5-hour warning still applies
+      const { totalHours } = await getCretHoursLastWeek(pendingAction.associate.id);
+      if (totalHours >= 5) {
+        setWarningData({
+          associate: pendingAction.associate,
+          totalHours,
+          action: 'start',
+        });
+        setShowWarning(true);
+        return;
+      }
       await startSession(pendingAction.associate);
     }
     setPendingAction(null);
@@ -356,6 +395,22 @@ export default function Scanner() {
           onCancel={() => {
             setShowNamePrompt(false);
             setPendingAssociate(null);
+            setIsScanning(false);
+          }}
+        />
+      )}
+
+      {showSameDayConfirm && sameDayData && (
+        <SameDayConfirmModal
+          associate={sameDayData.associate}
+          todayData={{
+            count: sameDayData.count,
+            totalHours: sameDayData.totalHours,
+          }}
+          onConfirm={handleSameDayConfirm}
+          onCancel={() => {
+            setShowSameDayConfirm(false);
+            setPendingAction(null);
             setIsScanning(false);
           }}
         />

@@ -33,14 +33,14 @@ export default function Dashboard() {
         getAllCretSessions(50),
       ]);
 
-      if (activeResult.data) {
-        setActiveSessions(activeResult.data);
-      }
+      const activeData = activeResult.data || [];
+      const recentData = recentResult.data || [];
 
-      if (recentResult.data) {
-        setRecentSessions(recentResult.data);
-        calculateStats(recentResult.data);
-      }
+      setActiveSessions(activeData);
+      setRecentSessions(recentData);
+
+      // Calculate stats with both active and recent data
+      calculateStats(recentData, activeData);
 
       setLoading(false);
     } catch (error) {
@@ -49,23 +49,27 @@ export default function Dashboard() {
     }
   };
 
-  const calculateStats = (sessions) => {
+  const calculateStats = (sessions, activeData) => {
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(now);
     weekStart.setDate(now.getDate() - 7);
 
+    // Filter for completed sessions only (with hours_used)
     const todaySessions = sessions.filter(
-      (s) => new Date(s.start_time) >= todayStart && s.hours_used
+      (s) => s.hours_used && new Date(s.start_time) >= todayStart
     );
     const weekSessions = sessions.filter(
-      (s) => new Date(s.start_time) >= weekStart && s.hours_used
+      (s) => s.hours_used && new Date(s.start_time) >= weekStart
     );
 
+    const totalToday = todaySessions.reduce((sum, s) => sum + (parseFloat(s.hours_used) || 0), 0);
+    const totalThisWeek = weekSessions.reduce((sum, s) => sum + (parseFloat(s.hours_used) || 0), 0);
+
     setStats({
-      totalToday: todaySessions.reduce((sum, s) => sum + (parseFloat(s.hours_used) || 0), 0),
-      totalThisWeek: weekSessions.reduce((sum, s) => sum + (parseFloat(s.hours_used) || 0), 0),
-      activeNow: activeSessions.length,
+      totalToday,
+      totalThisWeek,
+      activeNow: activeData.length,
     });
   };
 
