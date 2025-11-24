@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getActiveCretSessions, getAllCretSessions, formatHours, autoCloseOldSessions } from '../utils/cretUtils';
+import { getActiveCretSessions, getAllCretSessions, formatHours, autoCloseOldSessions, fixMissingHours } from '../utils/cretUtils';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 
@@ -26,6 +26,12 @@ export default function Dashboard() {
       const autoCloseResult = await autoCloseOldSessions();
       if (autoCloseResult.closedCount > 0) {
         toast.success(`Auto-closed ${autoCloseResult.closedCount} session(s) older than 11 hours (set to 10 hours)`);
+      }
+
+      // Fix any sessions with missing hours_used
+      const fixResult = await fixMissingHours();
+      if (fixResult.fixedCount > 0) {
+        toast.success(`Recalculated hours for ${fixResult.fixedCount} session(s)`);
       }
 
       const [activeResult, recentResult] = await Promise.all([

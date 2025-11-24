@@ -119,10 +119,21 @@ export const endCretSession = async (associateId) => {
       };
     }
 
-    // Update with end time
+    const endTime = new Date();
+    const startTime = new Date(session.start_time);
+    const hoursUsed = (endTime - startTime) / (1000 * 60 * 60); // Calculate hours
+    const dayOfWeek = format(startTime, 'EEEE');
+    const weekStart = format(startTime, 'yyyy-MM-dd');
+
+    // Update with end time and calculated values
     const { data, error } = await supabase
       .from(TABLES.CRET_SESSIONS)
-      .update({ end_time: new Date().toISOString() })
+      .update({
+        end_time: endTime.toISOString(),
+        hours_used: hoursUsed,
+        day_of_week: dayOfWeek,
+        week_start: weekStart
+      })
       .eq('id', session.id)
       .select()
       .single();
@@ -445,5 +456,56 @@ export const getAssociateCretHistory = async (associateId) => {
     return { data, error: null };
   } catch (error) {
     return { data: [], error };
+  }
+};
+
+/**
+ * Fix/recalculate hours for sessions that don't have hours_used set
+ * This is a one-time fix for existing data
+ */
+export const fixMissingHours = async () => {
+  try {
+    // Get all completed sessions without hours_used
+    const { data: sessions, error: fetchError } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .select('*')
+      .not('end_time', 'is', null)
+      .is('hours_used', null);
+
+    if (fetchError) throw fetchError;
+
+    if (!sessions || sessions.length === 0) {
+      return { fixedCount: 0, error: null };
+    }
+
+    // Calculate hours for each session
+    const updates = sessions.map(session => {
+      const startTime = new Date(session.start_time);
+      const endTime = new Date(session.end_time);
+      const hoursUsed = (endTime - startTime) / (1000 * 60 * 60);
+      const dayOfWeek = format(startTime, 'EEEE');
+      const weekStartDate = new Date(startTime);
+      weekStartDate.setDate(startTime.getDate() - startTime.getDay()); // Start of week
+      const weekStart = format(weekStartDate, 'yyyy-MM-dd');
+
+      return {
+        id: session.id,
+        hours_used: hoursUsed,
+        day_of_week: dayOfWeek,
+        week_start: weekStart
+      };
+    });
+
+    // Bulk update all sessions
+    const { data, error } = await supabase
+      .from(TABLES.CRET_SESSIONS)
+      .upsert(updates)
+      .select();
+
+    if (error) throw error;
+
+    return { fixedCount: sessions.length, sessions: data, error: null };
+  } catch (error) {
+    return { fixedCount: 0, sessions: [], error };
   }
 };
