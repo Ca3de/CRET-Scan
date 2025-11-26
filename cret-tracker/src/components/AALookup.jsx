@@ -48,6 +48,13 @@ export default function AALookup() {
       return;
     }
 
+    // Debug: Check if override data is in the fetched sessions
+    console.log('AA Lookup - Fetched sessions:', data);
+    const overrideSessions = data?.filter(s => s.override_warning);
+    if (overrideSessions?.length > 0) {
+      console.log('AA Lookup - Override sessions found:', overrideSessions);
+    }
+
     setSessions(data);
     groupSessionsByDate(data);
     calculateStats(data);
