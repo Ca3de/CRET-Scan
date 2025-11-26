@@ -9,6 +9,7 @@ import {
   endCretSession,
   getCretHoursLastWeek,
   getCompletedSessionsToday,
+  overrideWarning,
 } from '../utils/cretUtils';
 import WarningModal from './WarningModal';
 import NamePromptModal from './NamePromptModal';
@@ -188,9 +189,32 @@ export default function Scanner() {
   const handleWarningOverride = async (reason) => {
     setShowWarning(false);
     if (pendingAction?.type === 'start') {
-      await startSession(pendingAction.associate);
+      // Start the session first
+      const { data: session, error } = await startCretSession(pendingAction.associate.id, user.username);
+
+      if (error) {
+        toast.error(error.message);
+        setIsScanning(false);
+        setPendingAction(null);
+        return;
+      }
+
+      // Save the override reason to the session
+      const overrideResult = await overrideWarning(session.id, reason);
+
+      if (overrideResult.error) {
+        toast.error('Failed to save override reason');
+      }
+
+      setLastScan({
+        associate: pendingAction.associate,
+        action: 'start',
+        timestamp: new Date(),
+      });
+      toast.success(`${pendingAction.associate.name} sent to CRET (override: ${reason})`, { duration: 4000 });
     }
     setPendingAction(null);
+    setIsScanning(false);
   };
 
   const handleSameDayConfirm = async () => {
