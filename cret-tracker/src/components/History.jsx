@@ -85,7 +85,7 @@ export default function History() {
   };
 
   const exportToCSV = () => {
-    const headers = ['Name', 'Login', 'Badge ID', 'Start Time', 'End Time', 'Hours', 'Day', 'Week Start'];
+    const headers = ['Name', 'Login', 'Badge ID', 'Start Time', 'End Time', 'Hours', 'Day', 'Week Start', 'Override Reason'];
     const rows = filteredSessions.map((s) => [
       s.associate?.name || '',
       s.associate?.login || '',
@@ -95,6 +95,7 @@ export default function History() {
       s.hours_used || '',
       format(new Date(s.start_time), 'EEEE'),
       s.week_start || '',
+      s.override_reason || '',
     ]);
 
     const csv = [headers, ...rows].map((row) => row.join(',')).join('\n');
@@ -257,15 +258,22 @@ export default function History() {
                         : '—'}
                     </td>
                     <td className="py-3">
-                      {session.end_time ? (
-                        <span className="badge-success">Completed</span>
-                      ) : (
-                        <span className="badge-info">In Progress</span>
-                      )}
-                      {session.override_warning && (
-                        <span className="badge-warning ml-2" title={session.override_reason}>
-                          Override
-                        </span>
+                      <div>
+                        {session.end_time ? (
+                          <span className="badge-success">Completed</span>
+                        ) : (
+                          <span className="badge-info">In Progress</span>
+                        )}
+                        {session.override_warning && (
+                          <span className="badge-warning ml-2">
+                            Override
+                          </span>
+                        )}
+                      </div>
+                      {session.override_warning && session.override_reason && (
+                        <p className="text-xs text-amber-700 mt-1 italic">
+                          "{session.override_reason}"
+                        </p>
                       )}
                     </td>
                     <td className="py-3">
